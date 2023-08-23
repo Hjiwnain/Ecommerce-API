@@ -64,18 +64,10 @@ app.post('/create_account', async (req, res) => {
         console.log("Me" + hashedPassword);
         // If everything is okay, insert the user into the database
         await db.query('INSERT INTO userData (username, email, hashed_password) VALUES (?, ?, ?)', [username, email, hashedPassword]);
-        console.log("Added into DB");
-        //Generating  JWT Auth token
-        const playload = {
-            userId: 12345,
-            role: 'admin'
-        }
-        console.log("Done this");
-        const secret = crypto.randomBytes(256).toString('hex');
-        const token = jwt.sign(playload,secret,{expiresIn: '1h'});
+        // console.log("Added into DB");
 
         // Return only the username for security reasons, avoid sending back the password (even if it's hashed)
-        return res.json({ username,email,token });
+        return res.json({ username,email });
     } catch (error) {
         return res.status(500).json({ message: 'Database error', error });
     }
@@ -100,20 +92,62 @@ app.post('/Login', async (req,res) => {
         }
 
         const user = users[0];
+        // console.log(user);
 
-        const isMatch = await bcrypt.compare(password,user.password);
-
-        
+        const isMatch = await bcrypt.compare(password,user.hashed_password);
+        //Generating  JWT Auth token
+        const playload = {
+            userId: 12345,
+            role: 'admin'
+        }
+        // console.log("Done this");
+        const secret = process.env.JWT_TOEKN_SECRET
+        const token = jwt.sign(playload,secret,{expiresIn: '1h'});
 
         if(!isMatch){
             return res.status(401).json({message : "The Password you have entered is not attached with this account. Please check the password and retry"});
         }
-
+        else{
+            return res.status(401).json({message : "Logged In Succesfully",status: true,Secret_token: token});
+        }
     }
     catch(err){
         return res.status(402).json({message : "The Error in Loging In " + err});
     }
 });
+
+//MiddleWare to verify the JWT Token
+function verifyToken(req,res,next){
+    const bearHead = req.headers['authorization'];
+    console.log(bearHead);
+    if(!bearHead){
+        return res.status(404).json({message : "No JWT Token Provided"});
+    }
+    const token = bearHead.split(" ")[1];
+    const secret = process.env.JWT_TOEKN_SECRET
+    // console.log(secret);
+    jwt.verify(token, secret,(err,authData) => {
+        if(err){
+            console.log("#-------------------------#");
+            console.log(err);
+            console.log("#-------------------------#");
+            if(err.name == 'TokenExpiredError'){
+                return res.status(401).json({message: 'Token Has Expired.'});
+            }else{
+                console.log(err);
+                return res.status(403).json({message: 'Token is not valid.'});
+            }
+        }
+        req.authData = authData;
+        next();
+    });
+    console.log("don");
+}
+
+app.get('/verify',verifyToken,(req,res) => {
+    res.json({message: "Token is Valid",authData: req.Authorization});
+});
+
 
 app.listen(port, () => {
     console.log(`Server is running on port ${port}`);

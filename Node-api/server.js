@@ -44,18 +44,19 @@ app.post('/create_account', async (req, res) => {
             let message = '';
 
             if (users.some(user => user.username === username)) {
-                message += 'The Username is taken by some other user please use other username ';
+                message += 'User Already Exsists. ';
+                return res.status(400).json({ message });
             }
 
             if (users.some(user => user.email === email)) {
                 message += 'Email already exists.';
+                return res.status(400).json({ message });
             }
-
-            return res.status(400).json({ message });
         }
         // Hash the password
         const saltRounds = 10;
         const hashedPassword = await bcrypt.hash(password, saltRounds);
+
         if(hashedPassword.length < 2){
             return res.status(528).json({message : "The Servers are Temporiraly Unavialable Please login in latter"});
         }
@@ -67,7 +68,7 @@ app.post('/create_account', async (req, res) => {
         // console.log("Added into DB");
 
         // Return only the username for security reasons, avoid sending back the password (even if it's hashed)
-        return res.json({ username,email });
+        return res.json({username,email,message: "Account Created Succesfully" });
     } catch (error) {
         return res.status(500).json({ message: 'Database error', error });
     }
@@ -97,7 +98,7 @@ app.post('/Login', async (req,res) => {
         const isMatch = await bcrypt.compare(password,user.hashed_password);
         //Generating  JWT Auth token
         const playload = {
-            userId: 12345,
+            userId: username,
             role: 'admin'
         }
         // console.log("Done this");
@@ -144,10 +145,52 @@ function verifyToken(req,res,next){
     console.log("don");
 }
 
-app.get('/verify',verifyToken,(req,res) => {
-    res.json({message: "Token is Valid",authData: req.Authorization});
+app.post('/Show_Products', async (req,res) => {
+    try{
+        const [rows,fields] = await db.query("SELECT id,name,description,price,image_url FROM items");
+        res.json(rows);
+    }catch(err){
+        res.status(500).json({message: 'DataBase Error',error: err});
+    }
 });
 
+
+app.post('/AddToCart', verifyToken, async (req, res) => {
+    const { itemName, quantity } = req.body;
+    var autht = req.headers['authorization'];
+    let username = autht.split(" ")[1];
+    username = atob(username.split(".")[1]);
+    username = JSON.parse(username);
+    console.log("@@@@@@@");
+    console.log(username['userId']);
+    console.log("@@@@@@@");
+    username = username['userId'];
+    try {
+        let [cart] = await db.query('SELECT * FROM Carts WHERE username = ?', [username]);
+        if (cart.length === 0) {
+            await db.query('INSERT INTO Carts (username) VALUES (?)', [username]);
+            [cart] = await db.query('SELECT * FROM Carts WHERE username = ?', [username]);
+        }
+
+        await db.query(`
+            INSERT INTO CartItems (cart_id, item_name, quantity) 
+            VALUES (?, ?, ?) 
+            ON DUPLICATE KEY UPDATE quantity = quantity + ?
+        `, [cart[0].cart_id, itemName, quantity, quantity]);
+
+        res.json({ message: 'Item added to cart successfully!' });
+
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Database error', error });
+    }
+});
+
+
+//khareed
+//delete
+//final bill
+//emp
 
 app.listen(port, () => {
     console.log(`Server is running on port ${port}`);

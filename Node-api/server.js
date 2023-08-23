@@ -8,7 +8,7 @@ const app = express();
 
 app.use(express.json())
 
-app.get('/users', async (req,res) => {
+app.get('/fetch_data', async (req,res) => {
     try{
         const [rows,fields] = await db.query("SELECT * FROM userData");
         res.json(rows);

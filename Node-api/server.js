@@ -155,6 +155,7 @@ app.post('/Show_Products', async (req,res) => {
 });
 
 
+//AddToCartAPI
 app.post('/AddToCart', verifyToken, async (req, res) => {
     const { itemName, quantity } = req.body;
     var autht = req.headers['authorization'];
@@ -186,8 +187,10 @@ app.post('/AddToCart', verifyToken, async (req, res) => {
     }
 });
 
+//Delete Item API
 
-//khareed
+
+
 //delete
 //final bill
 //emp

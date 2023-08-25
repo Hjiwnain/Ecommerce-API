@@ -9,7 +9,18 @@ const port = 3001;
 
 const app = express();
 
-app.use(express.json())
+app.use(express.json());
+
+//Functions
+
+//getUserName
+function getuserName(authHeader) {
+    const token = authHeader.split(" ")[1];
+    const decodedToken = atob(token.split(".")[1]);
+    const parsedToken = JSON.parse(decodedToken);
+    return parsedToken['userId'];
+}
+
 
 //The Base API To Query The DataBase
 app.get('/fetch_data', async (req,res) => {
@@ -60,12 +71,8 @@ app.post('/create_account', async (req, res) => {
         if(hashedPassword.length < 2){
             return res.status(528).json({message : "The Servers are Temporiraly Unavialable Please login in latter"});
         }
-        console.log("I am here")
-        console.log("me");
-        console.log("Me" + hashedPassword);
         // If everything is okay, insert the user into the database
         await db.query('INSERT INTO userData (username, email, hashed_password) VALUES (?, ?, ?)', [username, email, hashedPassword]);
-        // console.log("Added into DB");
 
         // Return only the username for security reasons, avoid sending back the password (even if it's hashed)
         return res.json({username,email,message: "Account Created Succesfully" });
@@ -93,7 +100,6 @@ app.post('/Login', async (req,res) => {
         }
 
         const user = users[0];
-        // console.log(user);
 
         const isMatch = await bcrypt.compare(password,user.hashed_password);
         //Generating  JWT Auth token
@@ -101,7 +107,6 @@ app.post('/Login', async (req,res) => {
             userId: username,
             role: 'admin'
         }
-        // console.log("Done this");
         const secret = process.env.JWT_TOEKN_SECRET
         const token = jwt.sign(playload,secret,{expiresIn: '1h'});
 
@@ -120,29 +125,23 @@ app.post('/Login', async (req,res) => {
 //MiddleWare to verify the JWT Token
 function verifyToken(req,res,next){
     const bearHead = req.headers['authorization'];
-    console.log(bearHead);
+
     if(!bearHead){
         return res.status(404).json({message : "No JWT Token Provided"});
     }
     const token = bearHead.split(" ")[1];
     const secret = process.env.JWT_TOEKN_SECRET
-    // console.log(secret);
     jwt.verify(token, secret,(err,authData) => {
         if(err){
-            console.log("#-------------------------#");
-            console.log(err);
-            console.log("#-------------------------#");
             if(err.name == 'TokenExpiredError'){
                 return res.status(401).json({message: 'Token Has Expired.'});
             }else{
-                console.log(err);
                 return res.status(403).json({message: 'Token is not valid.'});
             }
         }
         req.authData = authData;
         next();
     });
-    console.log("don");
 }
 
 app.post('/Show_Products', async (req,res) => {
@@ -158,14 +157,7 @@ app.post('/Show_Products', async (req,res) => {
 //AddToCartAPI
 app.post('/AddToCart', verifyToken, async (req, res) => {
     const { itemName, quantity } = req.body;
-    var autht = req.headers['authorization'];
-    let username = autht.split(" ")[1];
-    username = atob(username.split(".")[1]);
-    username = JSON.parse(username);
-    console.log("@@@@@@@");
-    console.log(username['userId']);
-    console.log("@@@@@@@");
-    username = username['userId'];
+    username = getuserName(req.headers['authorization']);
     try {
         let [cart] = await db.query('SELECT * FROM Carts WHERE username = ?', [username]);
         if (cart.length === 0) {
@@ -187,17 +179,10 @@ app.post('/AddToCart', verifyToken, async (req, res) => {
     }
 });
 
-//Delete Item API
+//Delete Item Completely API
 app.post('/remove_from_cart', async (req,res) => {
     const {itemName} = req.body;
-    console.log("@@@@@@@@@@@@@@@@@");
-    console.log(itemName);
-    console.log("@@@@@@@@@@@@@@@@@");
-    var autht = req.headers['authorization'];
-    let username = autht.split(" ")[1];
-    username = atob(username.split(".")[1]);
-    username = JSON.parse(username);
-    username = username['userId'];
+    username = getuserName(req.headers['authorization']);
 
     try{
         const [cart] = await db.query('SELECT * FROM Carts WHERE username = ?', [username]);
@@ -215,18 +200,14 @@ app.post('/remove_from_cart', async (req,res) => {
             }
             res.json({message: "Item removed from cart Succesfully"});
     }catch(error){
-        console.log(error);
         res.status(500).json({message: "Dataabase error",error});
     }
 });
 
+//Delete Item by quantity API
 app.post('/decrement-item-quantity', async (req, res) => {
     const { itemName, quantity } = req.body;
-    var autht = req.headers['authorization'];
-    let username = autht.split(" ")[1];
-    username = atob(username.split(".")[1]);
-    username = JSON.parse(username);
-    username = username['userId'];
+    username = getuserName(req.headers['authorization']);
 
     if (!username || !itemName || typeof quantity !== 'number' || quantity <= 0) {
         return res.status(400).json({ message: 'Missing or invalid fields' });
@@ -265,11 +246,155 @@ app.post('/decrement-item-quantity', async (req, res) => {
     }
 });
 
+//Final Bill API
+app.post('/ClearCart', async (req,res) => {
+    username = getuserName(req.headers['authorization']);
+
+    // Get the user's cart
+    const [cart] = await db.query('SELECT * FROM Carts WHERE username = ?', [username]);
+
+    if (cart.length === 0) {
+        return res.status(404).json({ message: 'Cart not found for this user' });
+    }
+
+    try{
+        await db.query('DELETE FROM CartItems WHERE cart_id = ?',[cart[0].cart_id]);
+
+        await db.query(`
+            DELETE FROM Carts
+            WHERE cart_id = ? AND username = ?
+        `, [cart[0].cart_id, username]);
+
+        res.json({ message: 'The Cart is Now Empty!' });
+
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Database error', error });
+    }
+});
+
+//Query To See Current Cart Items
+app.get('/ShowCart', async (req,res) => {
+    username = getuserName(req.headers['authorization']);
+    // Get the user's cart
+    try{
+        const [cart] = await db.query('SELECT * FROM Carts WHERE username = ?', [username]);
+        if (cart.length === 0) {
+            return res.status(404).json({ message: 'Cart not found for this user' });
+        }
+
+        const [items] = await db.query('SELECT item_name,quantity FROM CartItems WHERE cart_id = ? ',[cart[0].cart_id]);
+
+        return res.json({cartItems: items});
+    }
+    catch(error){
+        res.status(500).json({message: 'DataBase Error', error});
+    }
+});
+
+//Proceed To CheckOuts
+/*
+Expected Output JSON
+{
+    Total_items: 20,
+    Amount: 2999,
+    Service Tax: 2131,
+    Product Tax: 231,
+    Total_Amount: 50023,
+    Items: {
+                {
+                    Item_name: "Cool Snikers",
+                    quantity: 2,
+                    cost: 80,
+                    serice_tax: 21,
+                    product_tax: 0,
+                    total_cost: 101
+                },
+                {
+                    Item_name: "Cool Snikers",
+                    quantity: 2,
+                    cost: 80,
+                    serice_tax: 21,
+                    product_tax: 0,
+                    total_cost: 101
+                },
+                {
+                    Item_name: "Cool Snikers",
+                    quantity: 2,
+                    cost: 80,
+                    serice_tax: 21,
+                    product_tax: 0,
+                    total_cost: 101
+                }
+           }
+}
+*/
+app.get('/getbill', async (req,res) => {
+    username = getuserName(req.headers['authorization']);
+    try{
+        const [cartItems] = await db.query('SELECT * FROM CartItems JOIN Carts ON CartItems.cart_id = Carts.cart_id JOIN items ON CartItems.item_name = items.name WHERE Carts.username = ?',[username]);
+        let total_items = 0;
+        let Amount = 0;
+        let ServiceTax = 0;
+        let ProductTax = 0;
+        let items = [];
+        for(let item of cartItems){
+            total_items += item.quantity;
+
+            let serice_tax = 0;
+            let product_tax = 0;
+
+            if(item.category == 'product'){
+                //Tax PA
+                if(item.price > 1000 && item.price<=5000){
+                    product_tax = 0.12 * item_price;
+                }
+                //Tax PB
+                else if(item.price > 5000){
+                    product_tax = 0.18 * item_price;
+                }
+                product_tax += 200; //Tax PC
+            }
+            else if(item.category == 'service'){
+                //Tax PA
+                if(item.price > 1000 && item.price<=8000){
+                    serice_tax = 0.10 * item_price;
+                }
+                //Tax PB
+                else if(item.price > 8000){
+                    serice_tax = 0.15 * item_price;
+                }
+                serice_tax += 100; //Tax PC
+            }
+            Amount += item.price * item.quantity;
+            ServiceTax += serice_tax * item.quantity;
+            ProductTax += product_tax * item.quantity;
+
+            items.push({
+                item_name: item.name,
+                quantity_name: item.quantity,
+                cost: item.price,
+                serice_tax: serice_tax,
+                product_tax: product_tax,
+                total_amount: (item.price +  serice_tax + product_tax) * item.quantity
+            });
+        }
+        const Total_Amount = Amount + ServiceTax + ProductTax;
+        return res.status(200).json({
+            total_items,
+            Amount,
+            ServiceTax,
+            ProductTax,
+            Total_Amount,
+            items
+        });
+    }
+    catch(error){
+        res.status(500).json({message: 'DataBase Error', error});
+    }
+});
 
 
-//delete
-//final bill
-//emp
 
 app.listen(port, () => {
     console.log(`Server is running on port ${port}`);

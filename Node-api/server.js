@@ -11,7 +11,6 @@ const app = express();
 
 app.use(express.json());
 
-//Functions
 
 //getUserName
 function getuserName(authHeader) {
@@ -114,7 +113,7 @@ app.post('/Login', async (req,res) => {
             return res.status(401).json({message : "The Password you have entered is not attached with this account. Please check the password and retry"});
         }
         else{
-            return res.status(401).json({message : "Logged In Succesfully",status: true,Secret_token: token});
+            return res.status(200).json({message : "Logged In Succesfully",status: true,Secret_token: token});
         }
     }
     catch(err){
@@ -332,15 +331,16 @@ Expected Output JSON
 app.get('/getbill', async (req,res) => {
     username = getuserName(req.headers['authorization']);
     try{
-        const [cartItems] = await db.query('SELECT * FROM CartItems JOIN Carts ON CartItems.cart_id = Carts.cart_id JOIN items ON CartItems.item_name = items.name WHERE Carts.username = ?',[username]);
+        const [cartItems] = await db.query('SELECT CartItems.quantity, items.name, items.price, items.category FROM CartItems JOIN Carts ON CartItems.cart_id = Carts.cart_id JOIN items ON CartItems.item_name = items.name WHERE Carts.username = ?',[username]);
+        // console.log(cartItems)
         let total_items = 0;
         let Amount = 0;
         let ServiceTax = 0;
         let ProductTax = 0;
         let items = [];
         for(let item of cartItems){
+            // console.log(item.quantity);
             total_items += item.quantity;
-
             let serice_tax = 0;
             let product_tax = 0;
 
@@ -394,6 +394,140 @@ app.get('/getbill', async (req,res) => {
     }
 });
 
+app.post('/Checkout', async (req, res) => {
+    const username = getuserName(req.headers['authorization']);
+    try {
+        const [cartItems] = await db.query('SELECT * FROM CartItems JOIN Carts ON CartItems.cart_id = Carts.cart_id JOIN items ON CartItems.item_name = items.name WHERE Carts.username = ?', [username]);
+
+        let total_items = 0;
+        let Amount = 0;
+        let ServiceTax = 0;
+        let ProductTax = 0;
+        let items = [];
+
+        for (let item of cartItems) {
+            total_items += item.quantity;
+
+            let service_tax = 0;
+            let product_tax = 0;
+
+            if (item.category === 'product') {
+                if (item.price > 1000 && item.price <= 5000) {
+                    product_tax = 0.12 * item.price;
+                } else if (item.price > 5000) {
+                    product_tax = 0.18 * item.price;
+                }
+                product_tax += 200; 
+            } else if (item.category === 'service') {
+                if (item.price > 1000 && item.price <= 8000) {
+                    service_tax = 0.10 * item.price;
+                } else if (item.price > 8000) {
+                    service_tax = 0.15 * item.price;
+                }
+                service_tax += 100;
+            }
+
+            Amount += item.price * item.quantity;
+            ServiceTax += service_tax * item.quantity;
+            ProductTax += product_tax * item.quantity;
+
+            items.push({
+                item_name: item.name,
+                quantity: item.quantity,
+                cost: item.price,
+                service_tax: service_tax,
+                product_tax: product_tax,
+                total_amount: (item.price + service_tax + product_tax) * item.quantity
+            });
+        }
+
+        const Total_Amount = Amount + ServiceTax + ProductTax;
+
+        await db.query('INSERT INTO Total_orders (username, total_items, amount, service_tax, product_tax, total_amount) VALUES (?, ?, ?, ?, ?, ?)', [username, total_items, Amount, ServiceTax, ProductTax, Total_Amount]);
+
+        let [results] = await db.query("SELECT LAST_INSERT_ID() AS order_id");
+        let orderId = results[0].order_id;
+
+        for (let item of items) {
+            await db.query('INSERT INTO Order_items (order_id, item_name, quantity) VALUES (?, ?, ?)', [orderId, item.item_name, item.quantity]);
+        }
+
+        const [cart] = await db.query('SELECT * FROM Carts WHERE username = ?', [username]);
+
+        if (cart.length === 0) {
+            return res.status(404).json({ message: 'Cart not found for this user' });
+        }
+
+        await db.query('DELETE FROM CartItems WHERE cart_id = ?', [cart[0].cart_id]);
+
+        await db.query('DELETE FROM Carts WHERE cart_id = ? AND username = ?', [cart[0].cart_id, username]);
+
+        return res.status(200).json({
+            total_items,
+            Amount,
+            ServiceTax,
+            ProductTax,
+            Total_Amount,
+            items,
+            order_id: orderId,
+            message: 'Order successfully placed and cart cleared!'
+        });
+
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'DataBase Error', error });
+    }
+});
+
+//Admin API
+app.get('/getAllOrders', async (req, res) => {
+    try {
+        const [orders] = await db.query(`
+            SELECT * 
+            FROM Total_orders
+            ORDER BY order_id DESC
+        `);
+
+        if (!orders.length) {
+            return res.status(404).json({ message: 'No orders found' });
+        }
+
+        res.json(orders);
+
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Database error', error });
+    }
+});
+
+app.get('/getAllOrders/details', async (req, res) => {
+    const username = getuserName(req.headers['authorization']);
+    try {
+        const [orders] = await db.query(`
+            SELECT order_id 
+            FROM Total_orders 
+            WHERE username = ?
+        `, [username]);
+
+        if (!orders.length) {
+            return res.status(404).json({ message: 'No orders found for this user' });
+        }
+
+        const orderIds = orders.map(order => order.order_id);
+
+        const [orderDetails] = await db.query(`
+            SELECT * 
+            FROM Order_items 
+            WHERE order_id IN (?)
+        `, [orderIds]);
+
+        res.json(orderDetails);
+
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Database error', error });
+    }
+});
 
 
 app.listen(port, () => {

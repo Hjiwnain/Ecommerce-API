@@ -74,7 +74,7 @@ async function login(req,res){
         //Generating  JWT Auth token
         const playload = {
             userId: username,
-            role: 'admin'
+            role: 'user'
         }
         const secret = process.env.JWT_TOEKN_SECRET
         const token = jwt.sign(playload,secret,{expiresIn: '1h'});

@@ -103,7 +103,7 @@ app.post('/Login', async (req,res) => {
         //Generating  JWT Auth token
         const playload = {
             userId: username,
-            role: 'admin'
+            role: 'user'
         }
         const secret = process.env.JWT_TOEKN_SECRET
         const token = jwt.sign(playload,secret,{expiresIn: '1h'});
@@ -180,7 +180,7 @@ app.post('/AddToCart', verifyToken, async (req, res) => {
 //Delete Item Completely API
 app.post('/remove_from_cart', async (req,res) => {
     const {itemName} = req.body;
-    username = getuserName(req.headers['authorization']);
+    let username = getuserName(req.headers['authorization']);
 
     try{
         const [cart] = await db.query('SELECT * FROM Carts WHERE username = ?', [username]);

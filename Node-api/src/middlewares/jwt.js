@@ -4,7 +4,7 @@ import jwt from 'jsonwebtoken';
 dotenv.config();
 
 //MiddleWare to verify the JWT Token
-function verifyToken(req,res,next){
+function verifyToken(req,res){
     const bearHead = req.headers['authorization'];
 
     if(!bearHead){
@@ -21,7 +21,7 @@ function verifyToken(req,res,next){
             }
         }
         req.authData = authData;
-        return next();
+        // next();
     });
 }
 

@@ -8,6 +8,7 @@ dotenv.config();
 import authRoutes from "./routes/authRoutes.js"
 import productRoutes from "./routes/productRoute.js"
 import userRoutes from "./routes/userRoutes.js"
+import adminRoutes from "./routes/adminRoutes.js"
 
 //Define Globals
 const PORT = Number(process.env.PORT)||3000;
@@ -28,6 +29,7 @@ app.use(express.json());
 app.use("/auth/",authRoutes);
 app.use("/product/",productRoutes);
 app.use("/users/",userRoutes);
+app.use("/admin/",adminRoutes);
 
 
 //Starting Server

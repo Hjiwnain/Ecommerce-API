@@ -188,6 +188,82 @@ app.post('/AddToCart', verifyToken, async (req, res) => {
 });
 
 //Delete Item API
+app.post('/remove_from_cart', async (req,res) => {
+    const {itemName} = req.body;
+    console.log("@@@@@@@@@@@@@@@@@");
+    console.log(itemName);
+    console.log("@@@@@@@@@@@@@@@@@");
+    var autht = req.headers['authorization'];
+    let username = autht.split(" ")[1];
+    username = atob(username.split(".")[1]);
+    username = JSON.parse(username);
+    username = username['userId'];
+
+    try{
+        const [cart] = await db.query('SELECT * FROM Carts WHERE username = ?', [username]);
+
+        if(cart.length === 0){
+            return res.status(404).json({message: "User Does Not Have Anything in the cart"});
+        }
+
+        //Delete Item from cartItems table
+        const [result] = await db.query(
+            "DELETE FROM CartItems WHERE cart_id = ? AND item_name = ?", [cart[0].cart_id, itemName]);
+
+            if(result.affectedRows === 0){
+                return res.status(404).json({message: "Items not found int the cart"});
+            }
+            res.json({message: "Item removed from cart Succesfully"});
+    }catch(error){
+        console.log(error);
+        res.status(500).json({message: "Dataabase error",error});
+    }
+});
+
+app.post('/decrement-item-quantity', async (req, res) => {
+    const { itemName, quantity } = req.body;
+    var autht = req.headers['authorization'];
+    let username = autht.split(" ")[1];
+    username = atob(username.split(".")[1]);
+    username = JSON.parse(username);
+    username = username['userId'];
+
+    if (!username || !itemName || typeof quantity !== 'number' || quantity <= 0) {
+        return res.status(400).json({ message: 'Missing or invalid fields' });
+    }
+
+    try {
+        // Get the user's cart
+        const [cart] = await db.query('SELECT * FROM Carts WHERE username = ?', [username]);
+
+        if (cart.length === 0) {
+            return res.status(404).json({ message: 'Cart not found for this user' });
+        }
+
+        // Decrement the item quantity
+        const [result] = await db.query(`
+            UPDATE CartItems
+            SET quantity = GREATEST(0, quantity - ?)
+            WHERE cart_id = ? AND item_name = ?
+        `, [quantity, cart[0].cart_id, itemName]);
+
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ message: 'Item not found in the cart' });
+        }
+
+        // If the item quantity is 0, consider removing it from the cart entirely
+        await db.query(`
+            DELETE FROM CartItems
+            WHERE cart_id = ? AND item_name = ? AND quantity = 0
+        `, [cart[0].cart_id, itemName]);
+
+        res.json({ message: 'Item quantity updated successfully!' });
+
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Database error', error });
+    }
+});
 
 
 

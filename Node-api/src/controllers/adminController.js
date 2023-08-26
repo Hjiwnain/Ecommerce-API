@@ -34,12 +34,10 @@ async function totalOrders(req, res){
 
 // Function To Check For OrderDetails
 async function orderDetails(req, res) {
-    console.log("bdy", req.body)
     const username = getUsername(req.headers['authorization']);
     if (username === "AdminPlot") {
         // const orderId = req.query.order_id || req.body.order_id;
         const orderId = req.body.order_id;
-        console.log(orderId);
         // Validation
         if (!orderId) {
             return res.status(400).json({ message: 'order_id is required' });
@@ -83,6 +81,7 @@ async function orderDetails(req, res) {
 
 //// 1. Add a new stock item 'stock/add'
 async function addStock(req, res){
+    
     const { name, description, price, category, quantity, image_url } = req.body;
     const username = getUsername(req.headers['authorization']);
     if(username === "AdminPlot"){
@@ -151,24 +150,34 @@ async function updateStock(req, res){
 };
 
 // 4. Increment or decrement the quantity of a stock item '/stock/quantity'
-async function stockQuantity(req, res){
+async function stockQuantity(req, res) {
     const username = getUsername(req.headers['authorization']);
-    if(username === "AdminPlot"){
+    if (username === "AdminPlot") {
+        let { name, change } = req.body; // change can be positive (increment) or negative (decrement)
+
+        // change = Number(change);
+        console.log(name +" " + change);
+        if (typeof change !== 'number') {
+            return res.status(400).json({ message: 'Invalid change value. It should be a number.' });
+        }
+
         try {
-            const { name, change } = req.body; // change can be positive (increment) or negative (decrement)
-            try {
-                await db.query('UPDATE items SET quantity = quantity + ? WHERE name = ?', [change, name]);
-                res.json({ message: 'Stock quantity updated successfully!' });
-            } catch (error) {
-                console.error(error);
-                res.status(500).json({ message: 'Database error', error });
+            const [result] = await db.query('UPDATE items SET quantity = quantity + ? WHERE name = ?', [change, name]);
+
+            if (result.affectedRows === 0) {
+                return res.status(404).json({ message: 'Item not found or no change in quantity.' });
             }
-        }catch(error){
+
+            console.log(`${result.affectedRows} row(s) updated.`);
+            res.json({ message: 'Stock quantity updated successfully!' });
+
+        } catch (error) {
+            console.error(error);
             res.status(500).json({ message: 'Database error', error });
         }
-    }
-    else{
-        res.status(403).json({message:"You are not authorized to access this resource"});
+
+    } else {
+        res.status(403).json({ message: "You are not authorized to access this resource" });
     }
 };
 

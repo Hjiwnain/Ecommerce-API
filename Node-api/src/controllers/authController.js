@@ -66,6 +66,8 @@ async function login(req,res){
 
         if(!users.length){
             return res.status(401).json({message : "The Username does not exist or is incorrect please check username again. Or Please Singup using /create_account route."});
+        }else{
+            
         }
 
         const user = users[0];

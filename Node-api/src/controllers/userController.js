@@ -8,6 +8,7 @@ async function addToCart(req, res) {
     await verifyToken(req, res);
     const { itemName, quantity } = req.body;
     const username = getUsername(req.headers['authorization']);
+    if(username.length < 2) return res.status(304).json({message: "Please Send Valid Authroization Token"});
     try {
         let [cart] = await db.query('SELECT * FROM Carts WHERE username = ?', [username]);
         
@@ -20,6 +21,7 @@ async function addToCart(req, res) {
         if (stock.length === 0) {
             return res.status(400).json({ message: 'Item not found in stock.' });
         }
+        
         let availableQuantity = stock[0].quantity;
         if (availableQuantity < quantity) {
             await db.query(`
@@ -49,7 +51,7 @@ async function removeFromCart(req,res){
     await verifyToken(req,res);
     const {itemName} = req.body;
     const username = getUsername(req.headers['authorization']);
-
+    if(username.length < 2) return res.status(304).json({message: "Please Send Valid Authroization Token"});
     try{
         const [cart] = await db.query('SELECT * FROM Carts WHERE username = ?', [username]);
 
@@ -75,7 +77,7 @@ async function decrementItemQuantity(req, res){
     await verifyToken(req,res);
     const { itemName, quantity } = req.body;
     const username = getUsername(req.headers['authorization']);
-
+    if(username.length < 2) return res.status(304).json({message: "Please Send Valid Authroization Token"});
     if (!username || !itemName || typeof quantity !== 'number' || quantity <= 0) {
         return res.status(400).json({ message: 'Missing or invalid fields' });
     }
@@ -117,7 +119,7 @@ async function decrementItemQuantity(req, res){
 async function clearCart(req,res){
     await verifyToken(req,res);
     const username = getUsername(req.headers['authorization']);
-
+    if(username.length < 2) return res.status(304).json({message: "Please Send Valid Authroization Token"});
     // Get the user's cart
     const [cart] = await db.query('SELECT * FROM Carts WHERE username = ?', [username]);
 
@@ -145,6 +147,7 @@ async function clearCart(req,res){
 async function showCart(req,res){
     await verifyToken(req,res);
     const username = getUsername(req.headers['authorization']);
+    if(username.length < 2) return res.status(304).json({message: "Please Send Valid Authroization Token"});
     // Get the user's cart
     try{
         const [cart] = await db.query('SELECT * FROM Carts WHERE username = ?', [username]);
@@ -154,7 +157,7 @@ async function showCart(req,res){
 
         const [items] = await db.query('SELECT item_name,quantity FROM CartItems WHERE cart_id = ? ',[cart[0].cart_id]);
 
-        return res.json({cartItems: items});
+        return res.status(200).json({cartItems: items});
     }
     catch(error){
         res.status(500).json({message: 'DataBase Error', error});
@@ -201,6 +204,7 @@ Expected Output JSON
 async function getBill (req,res) {
     await verifyToken(req,res);
     const username = getUsername(req.headers['authorization']);
+    if(username.length < 2) return res.status(304).json({message: "Please Send Valid Authroization Token"});
     try{
         const [cartItems] = await db.query('SELECT CartItems.quantity, items.name, items.price, items.category FROM CartItems JOIN Carts ON CartItems.cart_id = Carts.cart_id JOIN items ON CartItems.item_name = items.name WHERE Carts.username = ?',[username]);
         // console.log(cartItems)
@@ -265,18 +269,21 @@ async function getBill (req,res) {
     }
 };
 
-async function checkout(req, res) {
+async function checkout(req, res){
     const username = getUsername(req.headers['authorization']);
+    if(username.length < 2) return res.status(304).json({message: "Please Send Valid Authroization Token"});
     try {
-        const [cartItems] = await db.query('SELECT * FROM CartItems JOIN Carts ON CartItems.cart_id = Carts.cart_id JOIN items ON CartItems.item_name = items.name WHERE Carts.username = ?', [username]);
-
+        const [cartItems] = await db.query('SELECT CartItems.quantity, price, CartItems.item_name FROM CartItems JOIN Carts ON CartItems.cart_id = Carts.cart_id JOIN items ON CartItems.item_name = items.name WHERE Carts.username = ?', [username]);
         let total_items = 0;
         let Amount = 0;
         let ServiceTax = 0;
         let ProductTax = 0;
         let items = [];
 
+
         for (let item of cartItems) {
+            console.log(item.quantity);
+            console.log("Cao " + item.price);
             total_items += item.quantity;
 
             let service_tax = 0;
@@ -288,7 +295,7 @@ async function checkout(req, res) {
                 } else if (item.price > 5000) {
                     product_tax = 0.18 * item.price;
                 }
-                product_tax += 200;
+                product_tax += 200; 
             } else if (item.category === 'service') {
                 if (item.price > 1000 && item.price <= 8000) {
                     service_tax = 0.10 * item.price;
@@ -303,7 +310,7 @@ async function checkout(req, res) {
             ProductTax += product_tax * item.quantity;
 
             items.push({
-                item_name: item.name,
+                item_name: item.item_name,
                 quantity: item.quantity,
                 cost: item.price,
                 service_tax: service_tax,
@@ -311,9 +318,13 @@ async function checkout(req, res) {
                 total_amount: (item.price + service_tax + product_tax) * item.quantity
             });
 
-            // Reduce stock quantity for the item
-            await db.query('UPDATE items SET quantity = quantity - ? WHERE name = ?', [item.quantity, item.item_name]);
+             // Reduce stock quantity for the item
+             await db.query('UPDATE items SET quantity = quantity - ? WHERE name = ?', [item.quantity, item.item_name]);
         }
+        // await db.query(`
+        //     DELETE FROM items
+        //     WHERE quantity = 0
+        // `,);
 
         const Total_Amount = Amount + ServiceTax + ProductTax;
 
@@ -344,7 +355,7 @@ async function checkout(req, res) {
             Total_Amount,
             items,
             order_id: orderId,
-            message: 'Order successfully placed, stock updated, and cart cleared!'
+            message: 'Order successfully placed and cart cleared!'
         });
 
     } catch (error) {

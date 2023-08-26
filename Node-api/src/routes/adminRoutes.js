@@ -8,5 +8,8 @@ const router = Router();
 //Defining Routes
 router.post('/totalOders',adminRoute.totalOrders);
 router.post('/orderDetails',adminRoute.orderDetails);
+router.post('/stock/add',adminRoute.addStock);
+router.post('/stock/remove',adminRoute.removeStock);
+router.post('/stock/updateStock',adminRoute.updateStock);
 
 export default router;

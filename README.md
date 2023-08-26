@@ -72,11 +72,10 @@ The application should now be running on 'http://localhost:3000'.
 
 # API Endpoints
 
-        '/AddToCart' - For adding items to the user's cart.
-        '/Checkout' - For user checkout actions and inventory management.
-        '/getAllOrders' - To retrieve all user orders.
-        '/forgotPassword' - For users who forgot their password.
-        '/forgotUsername' - For users who forgot their username.
+        '/AddToCart' - Add Item to users cart.
+        '/Checkout' - Confirms the order and revert changes.
+        '/getAllOrders' - Shows total transaction performed.
+        '/forgotPassword' - Change Password For Existing User.
 
  [Additional API documentation if required]
 

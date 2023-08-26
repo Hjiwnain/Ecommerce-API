@@ -2,29 +2,47 @@ import { json } from 'express';
 import db from '../db/database.js';
 import { verifyToken,getUsername } from '../middlewares/jwt.js';
 
-//AddToCartAPI
-async function addToCart(req, res){
-    await verifyToken(req,res);
+
+//Add To Cart
+async function addToCart(req, res) {
+    await verifyToken(req, res);
     const { itemName, quantity } = req.body;
     const username = getUsername(req.headers['authorization']);
     try {
         let [cart] = await db.query('SELECT * FROM Carts WHERE username = ?', [username]);
+        
         if (cart.length === 0) {
             await db.query('INSERT INTO Carts (username) VALUES (?)', [username]);
             [cart] = await db.query('SELECT * FROM Carts WHERE username = ?', [username]);
         }
-        await db.query(`
-            INSERT INTO CartItems (cart_id, item_name, quantity) 
-            VALUES (?, ?, ?) 
-            ON DUPLICATE KEY UPDATE quantity = quantity + ?
-        `, [cart[0].cart_id, itemName, quantity, quantity]);
-        res.json({ message: 'Item added to cart successfully!' });
-
+        // Check the available stock for the item
+        const [stock] = await db.query('SELECT quantity FROM items WHERE name = ?', [itemName]);
+        if (stock.length === 0) {
+            return res.status(400).json({ message: 'Item not found in stock.' });
+        }
+        let availableQuantity = stock[0].quantity;
+        if (availableQuantity < quantity) {
+            await db.query(`
+                INSERT INTO CartItems (cart_id, item_name, quantity) 
+                VALUES (?, ?, ?) 
+                ON DUPLICATE KEY UPDATE quantity = quantity + ?
+            `, [cart[0].cart_id, itemName, availableQuantity, availableQuantity]);
+            return res.status(200).json({
+                message: 'We don’t have the sufficient quantity you requested. But we added the maximum available quantity to your cart.'
+            });
+        } else {
+            await db.query(`
+                INSERT INTO CartItems (cart_id, item_name, quantity) 
+                VALUES (?, ?, ?) 
+                ON DUPLICATE KEY UPDATE quantity = quantity + ?
+            `, [cart[0].cart_id, itemName, quantity, quantity]);
+            return res.status(200).json({ message: 'Item added to cart successfully!' });
+        }
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Database error', error });
     }
-};
+}
 
 //Delete Item Completely API
 async function removeFromCart(req,res){
@@ -247,7 +265,7 @@ async function getBill (req,res) {
     }
 };
 
-async function checkout(req, res){
+async function checkout(req, res) {
     const username = getUsername(req.headers['authorization']);
     try {
         const [cartItems] = await db.query('SELECT * FROM CartItems JOIN Carts ON CartItems.cart_id = Carts.cart_id JOIN items ON CartItems.item_name = items.name WHERE Carts.username = ?', [username]);
@@ -270,7 +288,7 @@ async function checkout(req, res){
                 } else if (item.price > 5000) {
                     product_tax = 0.18 * item.price;
                 }
-                product_tax += 200; 
+                product_tax += 200;
             } else if (item.category === 'service') {
                 if (item.price > 1000 && item.price <= 8000) {
                     service_tax = 0.10 * item.price;
@@ -292,6 +310,9 @@ async function checkout(req, res){
                 product_tax: product_tax,
                 total_amount: (item.price + service_tax + product_tax) * item.quantity
             });
+
+            // Reduce stock quantity for the item
+            await db.query('UPDATE items SET quantity = quantity - ? WHERE name = ?', [item.quantity, item.item_name]);
         }
 
         const Total_Amount = Amount + ServiceTax + ProductTax;
@@ -323,7 +344,7 @@ async function checkout(req, res){
             Total_Amount,
             items,
             order_id: orderId,
-            message: 'Order successfully placed and cart cleared!'
+            message: 'Order successfully placed, stock updated, and cart cleared!'
         });
 
     } catch (error) {

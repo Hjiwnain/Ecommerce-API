@@ -91,13 +91,29 @@ async function login(req,res){
     }
 };
 
+
 async function forgotPassword(req,res){
-    return res.status(200).json({message: "Function Not Complete"});
-}
+    // const { username, email } = req.body;
+    // try {
+    //     const [user] = await db.query('SELECT * FROM userData WHERE username = ? AND email = ?', [username, email]);
+    //     if (!user || user.length === 0) {
+    //         return res.status(404).json({ message: 'No user found with this username and email combination' });
+    //     }
+    //     console.log()
+    //     const password = user[0].password; // Assuming passwords are stored in plaintext, which is also a security risk.
+    //     res.status(200).json({ message: "Password :- " + password });
+
+    // } catch (error) {
+    //     console.error(error);
+    //     res.status(500).json({ message: 'Database error', error });
+    // }
+    return res.status(300).json({message: "This is Under Development"})
+};
 
 
 export const authController = {
     createAccount,
     login,
-    forgotPassword
+    forgotPassword,
+
 };

@@ -1,6 +1,7 @@
 //Import Librarys and Packages
 import { Router } from 'express';
 import { userFunction } from '../controllers/userController.js';
+import { verifyToken } from '../middlewares/jwt.js';
 
 //Creating Object
 const router = Router();

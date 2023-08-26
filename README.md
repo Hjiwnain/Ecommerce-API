@@ -68,7 +68,7 @@ The application should now be running on 'http://localhost:3000'.
         '/getAllOrders' - Shows total transaction performed.
         '/forgotPassword' - Change Password For Existing User.
 
- [Additional API documentation if required]
+[Full Documentation](https://docs.google.com/document/d/1GyXu7KWqL2qOpLEac8zcUhz8biRiyGgtFNIlgfQFOIY/edit?usp=sharing)
 
 # Contributing
 

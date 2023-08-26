@@ -59,6 +59,11 @@ To run this project, you'll need:
      node app.js
 ```
 
+## For Admin API Use Below Secret Key
+```
+eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJBZG1pblBsb3QiLCJyb2xlIjoiYWRtaW4ifQ.yUeYj4k6HOw5sXr0ztDA14URkr7S37XfcIEXOXgT2E8
+```
+
 The application should now be running on 'http://localhost:3000'.
 
 # API Endpoints

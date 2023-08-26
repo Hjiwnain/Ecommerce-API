@@ -107,6 +107,7 @@ async function addStock(req, res){
 // 2. Remove an existing stock item '/stock/remove'
 async function removeStock(req, res){
     const { name } = req.body;
+    console.log(req.headers['authorization']);
     const username = getUsername(req.headers['authorization']);
     if(username === "AdminPlot"){
         try {

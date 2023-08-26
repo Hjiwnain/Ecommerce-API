@@ -8,6 +8,7 @@ const router = Router();
 //Defining Routes
 router.post('/createAccount',authController.createAccount);
 router.post('/login',authController.login);
-router.post('/forgetPassword',authController.forgotPassword);
+router.post('/forgotPassword',authController.forgotPassword);
+router.post('/resetPassword', authController.resetPassword);
 
 export default router;

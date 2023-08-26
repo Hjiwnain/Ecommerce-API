@@ -27,9 +27,11 @@ function verifyToken(req,res){
 
 //getUserName from Bearer Token
 function getUsername(authHeader) {
+    console.log(authHeader);
     const token = authHeader.split(" ")[1];
     const decodedToken = atob(token.split(".")[1]);
     const parsedToken = JSON.parse(decodedToken);
+    console.log(parsedToken);
     return parsedToken['userId'];
 }
 

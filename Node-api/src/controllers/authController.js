@@ -2,6 +2,8 @@
 import bcrypt from 'bcrypt';
 import db from '../db/database.js';
 import jwt from 'jsonwebtoken';
+import jwt_decode from "jwt-decode";
+import { getUsername } from '../middlewares/jwt.js';
 
 //Function To Create New UserAccount
 //Remember To Change content-type to application/json
@@ -66,8 +68,6 @@ async function login(req,res){
 
         if(!users.length){
             return res.status(401).json({message : "The Username does not exist or is incorrect please check username again. Or Please Singup using /create_account route."});
-        }else{
-            
         }
 
         const user = users[0];
@@ -95,27 +95,47 @@ async function login(req,res){
 
 
 async function forgotPassword(req,res){
-    // const { username, email } = req.body;
-    // try {
-    //     const [user] = await db.query('SELECT * FROM userData WHERE username = ? AND email = ?', [username, email]);
-    //     if (!user || user.length === 0) {
-    //         return res.status(404).json({ message: 'No user found with this username and email combination' });
-    //     }
-    //     console.log()
-    //     const password = user[0].password; // Assuming passwords are stored in plaintext, which is also a security risk.
-    //     res.status(200).json({ message: "Password :- " + password });
+    const { email } = req.body.email;
+    console.log(email);
+    //Check if a user exist with give email
+    try{
+        const [userdata] = await db.query("SELECT * FROM userData WHERE email=?",[email]);
+        if(userdata.email === email){
+            //Send Email Logic Later Implementation
+            console.log(userdata)
+            const playload = {
+                email: userdata.email,
+                userId: userdata.username
+            }
+            const secret = process.env.JWT_TOEKN_SECRET
+            console.log("payload \n" + JSON.stringify(playload))
+            const token = jwt.sign(playload,secret,{expiresIn: '5M'});
 
-    // } catch (error) {
-    //     console.error(error);
-    //     res.status(500).json({ message: 'Database error', error });
-    // }
-    return res.status(300).json({message: "This is Under Development"})
+            res.status(200).json({message: "One Time Reset-Token",token});
+        }
+        else{
+            res.status(404).json({message: "Email Account is not linked with any user"});
+        }
+    }catch(error){
+        return res.status(500).json({message: "DataBase Error: "+ {error}});
+    }
+    //
 };
+
+async function resetPassword(req,res,next){
+    const { token, newPassword} = req.body;
+    console.log(token);
+    try{
+        console.log(getUsername(token));
+    }catch(error){
+        return res.status(500).json({message: "DataBase Error: "+ {error}});
+    }
+}
 
 
 export const authController = {
     createAccount,
     login,
     forgotPassword,
-
+    resetPassword
 };

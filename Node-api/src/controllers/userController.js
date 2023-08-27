@@ -5,7 +5,7 @@ import { verifyToken,getUsername } from '../middlewares/jwt.js';
 
 //Add To Cart
 async function addToCart(req, res) {
-    await verifyToken(req, res);
+    // await verifyToken(req, res);
     const { itemName, quantity } = req.body;
     const username = getUsername(req.headers['authorization']);
     if(username.length < 2) return res.status(304).json({message: "Please Send Valid Authroization Token"});
@@ -48,7 +48,7 @@ async function addToCart(req, res) {
 
 //Delete Item Completely API
 async function removeFromCart(req,res){
-    await verifyToken(req,res);
+    // await verifyToken(req,res);
     const {itemName} = req.body;
     const username = getUsername(req.headers['authorization']);
     if(username.length < 2) return res.status(304).json({message: "Please Send Valid Authroization Token"});
@@ -145,7 +145,7 @@ async function clearCart(req,res){
 
 //Query To See Current Cart Items
 async function showCart(req,res){
-    await verifyToken(req,res);
+    // await verifyToken(req,res);
     const username = getUsername(req.headers['authorization']);
     if(username.length < 2) return res.status(304).json({message: "Please Send Valid Authroization Token"});
     // Get the user's cart
@@ -202,19 +202,17 @@ Expected Output JSON
 }
 */
 async function getBill (req,res) {
-    await verifyToken(req,res);
+    // await verifyToken(req,res);
     const username = getUsername(req.headers['authorization']);
     if(username.length < 2) return res.status(304).json({message: "Please Send Valid Authroization Token"});
     try{
         const [cartItems] = await db.query('SELECT CartItems.quantity, items.name, items.price, items.category FROM CartItems JOIN Carts ON CartItems.cart_id = Carts.cart_id JOIN items ON CartItems.item_name = items.name WHERE Carts.username = ?',[username]);
-        // console.log(cartItems)
         let total_items = 0;
         let Amount = 0;
         let ServiceTax = 0;
         let ProductTax = 0;
         let items = [];
         for(let item of cartItems){
-            // console.log(item.quantity);
             total_items += item.quantity;
             let serice_tax = 0;
             let product_tax = 0;
@@ -282,8 +280,6 @@ async function checkout(req, res){
 
 
         for (let item of cartItems) {
-            console.log(item.quantity);
-            console.log("Cao " + item.price);
             total_items += item.quantity;
 
             let service_tax = 0;

@@ -8,7 +8,6 @@ async function totalOrders(req, res){
     // verifyToken(req,res);
     const username = getUsername(req.headers['authorization']);
     if(username === "AdminPlot"){
-        console.log(username);
         try {
             const [orders] = await db.query(`
                 SELECT * 
@@ -107,7 +106,7 @@ async function addStock(req, res){
 // 2. Remove an existing stock item '/stock/remove'
 async function removeStock(req, res){
     const { name } = req.body;
-    console.log(req.headers['authorization']);
+
     const username = getUsername(req.headers['authorization']);
     if(username === "AdminPlot"){
         try {
@@ -157,7 +156,6 @@ async function stockQuantity(req, res) {
         let { name, change } = req.body; // change can be positive (increment) or negative (decrement)
 
         // change = Number(change);
-        console.log(name +" " + change);
         if (typeof change !== 'number') {
             return res.status(400).json({ message: 'Invalid change value. It should be a number.' });
         }
@@ -169,7 +167,6 @@ async function stockQuantity(req, res) {
                 return res.status(404).json({ message: 'Item not found or no change in quantity.' });
             }
 
-            console.log(`${result.affectedRows} row(s) updated.`);
             res.json({ message: 'Stock quantity updated successfully!' });
 
         } catch (error) {

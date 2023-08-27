@@ -96,19 +96,16 @@ async function login(req,res){
 
 async function forgotPassword(req,res){
     const { email } = req.body.email;
-    console.log(email);
     //Check if a user exist with give email
     try{
         const [userdata] = await db.query("SELECT * FROM userData WHERE email=?",[email]);
         if(userdata.email === email){
             //Send Email Logic Later Implementation
-            console.log(userdata)
             const playload = {
                 email: userdata.email,
                 userId: userdata.username
             }
             const secret = process.env.JWT_TOEKN_SECRET
-            console.log("payload \n" + JSON.stringify(playload))
             const token = jwt.sign(playload,secret,{expiresIn: '5M'});
 
             res.status(200).json({message: "One Time Reset-Token",token});
@@ -124,7 +121,6 @@ async function forgotPassword(req,res){
 
 async function resetPassword(req,res,next){
     const { token, newPassword} = req.body;
-    console.log(token);
     try{
         console.log(getUsername(token));
     }catch(error){

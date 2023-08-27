@@ -27,12 +27,31 @@ function verifyToken(req,res,next){
 
 //getUserName from Bearer Token
 function getUsername(authHeader) {
-    console.log(authHeader);
-    const token = authHeader.split(" ")[1];
-    const decodedToken = atob(token.split(".")[1]);
-    const parsedToken = JSON.parse(decodedToken);
-    console.log(parsedToken);
-    return parsedToken['userId'];
+    if (!authHeader) {
+        console.error("Authorization header is missing.");
+        return null;
+    }
+
+    const authParts = authHeader.split(" ");
+    if (authParts.length !== 2 || authParts[0] !== "Bearer") {
+        console.error("Invalid authorization header format.");
+        return null;
+    }
+
+    const token = authParts[1];
+    try {
+        const decodedToken = atob(token.split(".")[1]);
+        const parsedToken = JSON.parse(decodedToken);
+        if (!parsedToken || !parsedToken.userId) {
+            console.error("Invalid token payload or missing userId.");
+            return null;
+        }
+        console.log(parsedToken);
+        return parsedToken.userId;
+    } catch (error) {
+        console.error("Error decoding or parsing token:", error);
+        return null;
+    }
 }
 
 export {verifyToken,getUsername};

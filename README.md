@@ -83,10 +83,6 @@ The application should now be running on 'http://localhost:3000'.
 
 - This project is open-source and available under the MIT License.
 
-    
-- Just replace the placeholder text with the actual content. For example, replace `https://github.com/your-username/ecommerce-cart-management.git` with the actual 
-  repository link.
-
 
 
 
